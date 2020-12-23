@@ -1,8 +1,16 @@
 package main
 
 import (
-	"github.com/ebrianne/adguard-exporter/config"
-	"github.com/ebrianne/adguard-exporter/internal/server"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+	
+	"github.com/ebrianne/wireguard-exporter/config"
+	"github.com/ebrianne/wireguard-exporter/internal/metrics"
+	"github.com/ebrianne/wireguard-exporter/internal/server"
+	"github.com/ebrianne/wireguard-exporter/internal/wireguard"
 )
 
 const (
@@ -16,30 +24,31 @@ var (
 func main() {
 	conf := config.Load()
 
-	// metrics.Init()
+	metrics.Init()
 
-	// initAdguardClient(conf.AdguardProtocol, conf.AdguardHostname, conf.AdguardUsername, conf.AdguardPassword, conf.Interval, conf.LogLimit)
-	// initHttpServer(conf.ServerPort)
+	initWireguardClient(conf.WgPeerFile, conf.Interval)
+	initHttpServer(conf.ServerPort)
 
-	// handleExitSignal()
+	handleExitSignal()
 }
 
-// func initAdguardClient(protocol, hostname string, username, password string, interval time.Duration, logLimit string) {
-// 	client := adguard.NewClient(protocol, hostname, username, password, interval, logLimit)
-// 	go client.Scrape()
-// }
+func initWireguardClient(wgpeerfile string, interval time.Duration) {
 
-// func initHttpServer(port string) {
-// 	s = server.NewServer(port)
-// 	go s.ListenAndServe()
-// }
+	client := wireguard.NewClient(wgpeerfile, interval)
+	go client.Scrape()
+}
 
-// func handleExitSignal() {
-// 	stop := make(chan os.Signal, 1)
-// 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+func initHttpServer(port string) {
+	s = server.NewServer(port)
+	go s.ListenAndServe()
+}
 
-// 	<-stop
+func handleExitSignal() {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-// 	s.Stop()
-// 	fmt.Println(fmt.Sprintf("\n%s HTTP server stopped", name))
-// }
+	<-stop
+
+	s.Stop()
+	fmt.Println(fmt.Sprintf("\n%s HTTP server stopped", name))
+}
