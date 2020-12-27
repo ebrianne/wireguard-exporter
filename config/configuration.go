@@ -16,14 +16,12 @@ import (
 // Config is the exporter CLI configuration.
 type Config struct {
 	ServerPort      string        `config:"server_port"`
-	WgPeerFile      string        `config:"wg_peer_file"`
 	Interval        time.Duration `config:"interval"`
 }
 
 func getDefaultConfig() *Config {
 	return &Config{
 		ServerPort:      "9586",
-		WgPeerFile:      "",
 		Interval:        10 * time.Second,
 	}
 }

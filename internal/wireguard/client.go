@@ -1,63 +1,116 @@
 package wireguard
 
 import (
+	"fmt"
 	"log"
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"github.com/ebrianne/wireguard-exporter/internal/metrics"
+
+	"code.cloudfoundry.org/bytefmt"
 )
-
-type Client struct {
-	Devices []*wgtypes.Device
-	WgPeerFile string
-	interval time.Duration
-}
-
-// NewClient method initializes a new AdGuard  client.
-func NewClient(file string, interval time.Duration) *Client {
-
-	client, err := wgctrl.New()
-	if err != nil {
-		log.Fatalf("failed to open WireGuard control client: %v", err)
-	}
-
-	devices, err := client.Devices()
-	if err != nil {
-		log.Fatalf("failed to fetch WireGuard devices: %v", err)
-	}
-
-	return &Client {
-		Devices: devices,
-		WgPeerFile: file,
-		interval: interval,
-	}
-}
 
 // Scrape method authenticates and retrieves statistics from AdGuard  JSON API
 // and then pass them as Prometheus metrics.
-func (c *Client) Scrape() {
-	for range time.Tick(c.interval) {
+func Scrape(interval time.Duration) {
 
-		stats := c.getStatistics()
-		//Set the metrics
-		c.setMetrics(stats)
+	for range time.Tick(interval) {
+
+		client, err := wgctrl.New()
+		if err != nil {
+			log.Fatalf("failed to open WireGuard control client: %v", err)
+		}
+		defer client.Close()
+	
+		devices, err := client.Devices()
+		if err != nil {
+			log.Fatalf("failed to fetch WireGuard devices: %v", err)
+		}
+	
+		for _, d := range devices {
+			log.Printf(fmt.Sprintf("Found device %s with public key %s", d.Name, d.PublicKey.String()))
+		}
 
 		log.Printf("New tick of statistics")
+
+		stats := getStatistics(devices)
+		//Set the metrics
+		setMetrics(stats)
 	}
 }
 
-func (c *Client) setMetrics(stats *Stats) {
+func setMetrics(stats *Stats) {
+	
 	//Stats
-	metrics.WireguardDeviceInfo.WithLabelValues(stats.WireguardDeviceInfo[0], stats.WireguardDeviceInfo[1]).Set(float64(1))
+	for l := range stats.WireguardDeviceInfo {
+		for device, pubkey := range stats.WireguardDeviceInfo[l] {
+
+			metrics.WireguardDeviceInfo.WithLabelValues(device, pubkey).Set(float64(1))
+
+			for m := range stats.WireguardPeerInfo {
+				for endpoint, peer_pub := range stats.WireguardPeerInfo[m] {
+
+					metrics.WireguardPeerInfo.WithLabelValues(device, pubkey, endpoint, peer_pub).Set(float64(1))
+					metrics.WireguardPeerReceiveBytes.WithLabelValues(device, pubkey, endpoint, peer_pub).Set(float64(stats.WireguardPeerReceiveBytes[m]))
+					metrics.WireguardPeerTransmitBytes.WithLabelValues(device, pubkey, endpoint, peer_pub).Set(float64(stats.WireguardPeerTransmitBytes[m]))
+					metrics.WireguardPeerLastHandshake.WithLabelValues(device, pubkey, endpoint, peer_pub).Set(stats.WireguardPeerLastHandshake[m])
+				}
+			}
+		}
+	}
 }
 
-func (c *Client) getStatistics() *Stats {
+func getStatistics(devices []*wgtypes.Device) *Stats {
 
 	var stats Stats
-	for _, d := range c.Devices {
-		stats.WireguardDeviceInfo = []string{d.Name, d.PublicKey.String()}
+	var idev = 0
+
+	stats.WireguardDeviceInfo = make([]map[string]string, len(devices))
+
+	for _, d := range devices {
+
+		log.Printf("Getting stats for device %s, pub key %s", d.Name, d.PublicKey.String())
+
+		stats.WireguardDeviceInfo[idev] = make(map[string]string)
+		stats.WireguardDeviceInfo[idev][d.Name] = d.PublicKey.String()
+
+		var ipeer = 0
+
+		stats.WireguardPeerInfo = make([]map[string]string, len(d.Peers))
+		stats.WireguardPeerReceiveBytes = make([]float64, len(d.Peers))
+		stats.WireguardPeerTransmitBytes = make([]float64, len(d.Peers))
+		stats.WireguardPeerLastHandshake = make([]float64, len(d.Peers))
+
+		for _, p := range d.Peers {
+			peer_pub := p.PublicKey.String()
+
+			// Use empty string instead of special Go <nil> syntax for no endpoint.
+			var endpoint string
+			if p.Endpoint != nil {
+				endpoint = p.Endpoint.String()
+			}
+
+			stats.WireguardPeerInfo[ipeer] = make(map[string]string)
+			stats.WireguardPeerInfo[ipeer][endpoint] = peer_pub
+			stats.WireguardPeerReceiveBytes[ipeer] = float64(p.ReceiveBytes)
+			stats.WireguardPeerTransmitBytes[ipeer] = float64(p.TransmitBytes)
+
+			// Expose last handshake of 0 unless a last handshake time is set.
+			var last float64
+			if !p.LastHandshakeTime.IsZero() {
+				last = float64(p.LastHandshakeTime.Unix())
+			}
+
+			stats.WireguardPeerLastHandshake[ipeer] = last
+
+			log.Printf("Peer %s, Received %v, Sent %v, Last Handshake %s", peer_pub, bytefmt.ByteSize(uint64(p.ReceiveBytes)), bytefmt.ByteSize(uint64(p.TransmitBytes)), time.Unix(p.LastHandshakeTime.Unix(), 0))
+
+			ipeer++
+		}
+
+		idev++
 	}
 
 	return &stats

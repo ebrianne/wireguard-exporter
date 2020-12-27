@@ -26,16 +26,14 @@ func main() {
 
 	metrics.Init()
 
-	initWireguardClient(conf.WgPeerFile, conf.Interval)
+	initWireguardClient(conf.Interval)
 	initHttpServer(conf.ServerPort)
 
 	handleExitSignal()
 }
 
-func initWireguardClient(wgpeerfile string, interval time.Duration) {
-
-	client := wireguard.NewClient(wgpeerfile, interval)
-	go client.Scrape()
+func initWireguardClient(interval time.Duration) {
+	go wireguard.Scrape(interval)
 }
 
 func initHttpServer(port string) {
