@@ -5,10 +5,7 @@
 [![GoReportCard](https://goreportcard.com/badge/github.com/ebrianne/wireguard-exporter)](https://goreportcard.com/report/github.com/ebrianne/wireguard-exporter)
 
 This is a Prometheus exporter for [Wireguard](https://www.wireguard.com).
-
-<!-- ![Grafana dashboard](https://raw.githubusercontent.com/ebrianne/adguard-exporter/master/grafana/dashboard.png)
-
-Grafana dashboard is [available here](https://grafana.com/dashboards/13330) on the Grafana dashboard website and also [here](https://raw.githubusercontent.com/ebrianne/adguard-exporter/master/grafana/dashboard.json) on the GitHub repository. -->
+A Grafana dashboard is [available here](https://grafana.com/grafana/dashboards/12177) on the Grafana dashboard website.
 
 ## Prerequisites
 
@@ -29,6 +26,9 @@ Wireguard provides an app for MacOS. This exporter is not compatible with it. Yo
 ```bash
 brew install wireguard-go wireguard-tools
 ```
+### For Windows
+
+Not sure if this works...
 
 ### Download binary
 
