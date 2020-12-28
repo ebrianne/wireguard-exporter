@@ -5,8 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
-	
+
 	"github.com/ebrianne/wireguard-exporter/config"
 	"github.com/ebrianne/wireguard-exporter/internal/metrics"
 	"github.com/ebrianne/wireguard-exporter/internal/server"
@@ -25,15 +24,9 @@ func main() {
 	conf := config.Load()
 
 	metrics.Init()
-
-	initWireguardClient(conf.Interval)
+	go wireguard.Scrape(conf.Interval)
 	initHttpServer(conf.ServerPort)
-
 	handleExitSignal()
-}
-
-func initWireguardClient(interval time.Duration) {
-	go wireguard.Scrape(interval)
 }
 
 func initHttpServer(port string) {

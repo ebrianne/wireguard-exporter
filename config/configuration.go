@@ -6,7 +6,7 @@ import (
 	"log"
 	"reflect"
 	"time"
-	
+
 	"github.com/heetch/confita"
 	"github.com/heetch/confita/backend"
 	"github.com/heetch/confita/backend/env"
@@ -15,14 +15,14 @@ import (
 
 // Config is the exporter CLI configuration.
 type Config struct {
-	ServerPort      string        `config:"server_port"`
-	Interval        time.Duration `config:"interval"`
+	ServerPort string        `config:"server_port"`
+	Interval   time.Duration `config:"interval"`
 }
 
 func getDefaultConfig() *Config {
 	return &Config{
-		ServerPort:      "9586",
-		Interval:        10 * time.Second,
+		ServerPort: "9586",
+		Interval:   10 * time.Second,
 	}
 }
 
